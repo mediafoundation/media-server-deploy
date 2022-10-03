@@ -1,0 +1,24 @@
+- name: Making sure there's no previous media-server installed
+  ansible.builtin.file:
+    state: absent
+    path: /root/media-server
+
+- name: Cloning media-server repository
+  ansible.builtin.git:
+    repo: https://github.com/mediafoundation/media-server.git
+    dest: /root/media-server
+    clone: yes
+    update: yes
+
+- name: Installing npm packages for media-server
+  npm:
+    path: /root/media-server
+    state: present
+
+# config files
+
+- name: Copying config file for media-server
+  template:
+    src: files/config.js.j2
+    dest: /root/media-server/config.js
+

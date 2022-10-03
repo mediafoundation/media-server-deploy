@@ -1,0 +1,47 @@
+- name: Editing /etc/apt/apt.conf.d/90releaseinfo-change to fix buster apt fix
+  shell: |
+    sed -i '/Acquire::AllowReleaseInfoChange::Suite/d' /etc/apt/apt.conf.d/90releaseinfo-change
+    echo 'Acquire::AllowReleaseInfoChange::Suite "true";' >> /etc/apt/apt.conf.d/90releaseinfo-change
+
+- name: Allowing release-info to change for apt repositories
+  shell: apt-get update -y --allow-releaseinfo-change
+
+- name: Running apt upgrade
+  apt:
+    upgrade: true
+    update_cache: true
+
+- name: Removing potential conflicting packages
+  apt:
+    state: absent 
+    autoremove: yes
+    name:
+    - ufw
+
+- name: Installing essential packages
+  apt:
+    update_cache: yes 
+    install_recommends: yes
+    state: latest
+    name:
+    - git
+    - htop
+    - tmux  
+    - curl
+    - bmon
+    - nano
+    - xz-utils
+    - ffmpeg
+
+- name: Downloading and apply NodeJS sources
+  shell: curl -sL https://deb.nodesource.com/setup_16.x | bash -
+
+- name: Installing NodeJS from apt
+  apt: 
+    pkg: nodejs 
+    state: latest 
+    update_cache: yes 
+    install_recommends: yes  
+
+- name: Installing PM2
+  shell: npm install -g pm2

@@ -1,0 +1,4 @@
+- include: system.yml
+- include: media-server.yml
+- include: starter.yml
+- include: optimize.yml

@@ -1,0 +1,8 @@
+- name: deploy
+  hosts: all
+  user: root
+  roles:
+    - media-server
+
+  vars_files:
+    - vars/variables.yml

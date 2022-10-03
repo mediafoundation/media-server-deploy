@@ -1,0 +1,32 @@
+- name: Optimizing Linux
+  ansible.builtin.shell: |
+    sed -i '/fs.file-max/d' /etc/sysctl.d/99-files.conf
+    sed -i '/fs.inotify.max_user_watches/d' /etc/sysctl.d/99-files.conf
+    sed -i '/fs.inotify.max_user_instances/d' /etc/sysctl.d/99-files.conf
+    sed -i '/net.ipv4.tcp_fin_timeout/d' /etc/sysctl.conf
+    sed -i '/net.core.somaxconn/d' /etc/sysctl.conf
+    sed -i '/net.core.netdev_max_backlog/d' /etc/sysctl.conf
+    sed -i '/net.ipv4.ip_local_port_range/d' /etc/sysctl.conf
+    sed -i '/net.ipv4.netfilter.ip_conntrack_tcp_timeout_time_wait/d' /etc/sysctl.d/local.conf
+    sed -i '/DefaultLimitNOFILE/d' /etc/systemd/system.conf
+    sed -i '/DefaultLimitNOFILE/d' /etc/systemd/user.conf
+    sed -i '/ifconfig/d' /etc/rc.local
+    echo 'fs.file-max = 999999' >> /etc/sysctl.d/99-files.conf
+    echo 'fs.inotify.max_user_watches = 999999' >> /etc/sysctl.d/99-files.conf
+    echo 'fs.inotify.max_user_instances = 999999' >> /etc/sysctl.d/99-files.conf
+    echo 'net.ipv4.tcp_fin_timeout=30' >> /etc/sysctl.conf
+    echo 'net.core.somaxconn = 65535' >> /etc/sysctl.conf
+    echo 'net.core.netdev_max_backlog = 65535' >> /etc/sysctl.conf
+    echo 'net.ipv4.ip_local_port_range=15000 61000' >> /etc/sysctl.conf
+    echo 'net.ipv4.netfilter.ip_conntrack_tcp_timeout_time_wait = 1' >> /etc/sysctl.d/local.conf
+    echo 'DefaultLimitNOFILE=999999' >> /etc/systemd/system.conf
+    echo 'DefaultLimitNOFILE=999999' >> /etc/systemd/user.conf
+    echo "/sbin/ifconfig $(ip route get 8.8.8.8 | awk -- '{printf $5}') txqueuelen 5000" >> /etc/rc.local
+    ulimit -n 999999
+
+- name: Optimizing the main interface (needs reboot to apply)
+  shell: echo "/sbin/ifconfig $(ip route get 8.8.8.8 | awk -- '{printf $5}') txqueuelen 5000" >> /etc/rc.local
+
+- name: Rebooting host to apply configuration
+  reboot:
+    msg: "Reboot initiated by Ansible"

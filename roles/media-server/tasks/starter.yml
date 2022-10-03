@@ -1,0 +1,18 @@
+- name: Copying ecosystem file for pm2
+  ansible.builtin.copy:
+    src: files/pm2/ecosystem.config.js
+    dest: /root/
+    follow: no
+
+- name: Starting pm2 from ecosystem
+  command:
+    cmd: 'pm2 start ecosystem.config.js'
+    chdir: /root/
+
+- name: Adding pm2 to system startup
+  command:
+    cmd: 'pm2 startup'
+
+- name: Saving pm2 configuration
+  command:
+    cmd: 'pm2 save'
