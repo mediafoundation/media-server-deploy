@@ -1,4 +1,4 @@
-# Media Server
+# media-server
 ## Instructions
 
 # Copy and edit files

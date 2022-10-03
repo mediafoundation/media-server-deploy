@@ -1,4 +1,4 @@
-- name: deploy
+- name: Installing media-server
   hosts: all
   user: root
   roles:
