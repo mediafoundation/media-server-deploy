@@ -1,37 +1,100 @@
-- name: Editing /etc/apt/apt.conf.d/90releaseinfo-change to fix buster apt fix
+# Start by resetting APT sources to avoid issues with third-party repositories
+- name: Find all files in sources.list.d
+  find:
+    paths: "/etc/apt/sources.list.d/"
+    file_type: file
+  register: found_files
+
+- name: Remove all files from sources.list.d
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ found_files.files }}"
+  when: found_files.matched > 0
+
+- name: Reset main sources.list to default for Debian 10
+  copy:
+    content: |
+      deb http://deb.debian.org/debian/ buster main
+      deb-src http://deb.debian.org/debian/ buster main
+
+      deb http://deb.debian.org/debian/ buster-updates main
+      deb-src http://deb.debian.org/debian/ buster-updates main
+
+      deb http://security.debian.org/debian-security buster/updates main
+      deb-src http://security.debian.org/debian-security buster/updates main
+    dest: /etc/apt/sources.list
+
+# Adjust APT configurations to allow release info changes
+- name: Fixing apt package issues
   shell: |
     sed -i '/Acquire::AllowReleaseInfoChange::Suite/d' /etc/apt/apt.conf.d/90releaseinfo-change
     echo 'Acquire::AllowReleaseInfoChange::Suite "true";' >> /etc/apt/apt.conf.d/90releaseinfo-change
 
-- name: Allowing release-info to change for apt repositories
-  shell: apt-get update -y --allow-releaseinfo-change
-
-- name: Running apt upgrade
+# Update the APT cache
+- name: Update apt cache directly
   apt:
-    upgrade: true
-    update_cache: true
+    update_cache: yes
+  register: apt_update_result
+  ignore_errors: yes
 
+# Display any errors encountered during the APT cache update
+- name: Print apt update output if failed
+  debug:
+    var: apt_update_result.stdout_lines
+  when: apt_update_result is failed
+
+# Upgrade all system packages if APT cache update was successful
+- name: Upgrade system packages
+  apt:
+    upgrade: "yes"
+  when: apt_update_result is succeeded
+
+# Address any unconfigured packages
+- name: Reconfigure dpkg
+  command: dpkg --configure -a
+
+# Prevent services from auto-starting after installation
+- name: Preventing services to start after installed
+  shell: |
+    echo '#!/bin/sh' > /usr/sbin/policy-rc.d
+    echo 'exit 101' >> /usr/sbin/policy-rc.d
+    chmod +x /usr/sbin/policy-rc.d
+
+# Remove packages that might conflict with our setup
 - name: Removing potential conflicting packages
   apt:
     state: absent 
-    autoremove: yes
+    autoremove: true
     name:
-    - ufw
+      - apache2
+      - nginx
 
-- name: Installing essential packages
+# Install shared system packages, ensuring APT cache update was successful
+- name: Installing shared system packages
   apt:
-    update_cache: yes 
-    install_recommends: yes
+    install_recommends: true
     state: latest
     name:
-    - git
-    - htop
-    - tmux  
-    - curl
-    - bmon
-    - nano
-    - xz-utils
-    - ffmpeg
+      - htop
+      - gpg
+      - rsync
+      - tmux
+      - jq
+      - wget
+      - curl
+      - bmon
+      - iftop
+      - git      
+      - ffmpeg   
+  when: apt_update_result is succeeded
+
+# Disable Firewall to allow connectivity between edge and origin
+- name: Disable UFW if enabled
+  ufw:
+    state: disabled
+  ignore_errors: yes
+
 
 - name: Downloading and apply NodeJS sources
   shell: curl -sL https://deb.nodesource.com/setup_16.x | bash -
@@ -43,5 +106,27 @@
     update_cache: yes 
     install_recommends: yes  
 
+# Verify Node.js installation
+- name: Verify Node.js installation
+  command: node --version
+  register: node_version
+  failed_when: node_version.rc != 0
+
+# Check if npm is installed, if not, install it
+- name: Check if npm is installed
+  command: which npm
+  ignore_errors: yes
+  register: npm_check
+
+- name: Install npm if not present
+  apt: 
+    name: npm
+    state: latest
+    update_cache: yes
+  when: npm_check.rc != 0
+
+# Installing PM2 using npm
 - name: Installing PM2
   shell: npm install -g pm2
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
